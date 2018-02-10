@@ -4,6 +4,7 @@
  **/
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /***
  * macros
@@ -73,38 +74,96 @@ void proc_cmd(char *cmd){
 			proc_s(cmd);
 			break;
 		default:
-			perror("do nothing. unknown command");
+			perror("Do nothing. Unknown command");
 			break;
 	}
 }
 
 void proc_p(char *cmd){
-	printf("put command : ");
-	printf("%s",cmd);
+	char *tok;
+	int i1, i2;
+	if((tok=strtok(cmd, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	if((tok=strtok(NULL, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	i1 = strtol(tok, NULL, 10);
+	if((tok=strtok(NULL, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	i2 = strtol(tok, NULL, 10);	
+	printf("cmd: %s key: %d value: %d\n", cmd, i1, i2);
 }
 
 void proc_g(char *cmd){
-	printf("get command : ");
-	printf("%s",cmd);
+	char *tok;
+	int i1;
+	if((tok=strtok(cmd, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	if((tok=strtok(NULL, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	i1 = strtol(tok, NULL, 10);
+	printf("cmd: %s key: %d\n", cmd, i1);
 }
 
 void proc_r(char *cmd){
-	printf("range command : ");
-	printf("%s",cmd);
+	char *tok;
+	int i1, i2;
+	if((tok=strtok(cmd, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	if((tok=strtok(NULL, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	i1 = strtol(tok, NULL, 10);
+	if((tok=strtok(NULL, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	i2 = strtol(tok, NULL, 10);	
+	printf("cmd: %s key: %d value: %d\n", cmd, i1, i2);
 }
 
 void proc_d(char *cmd){
-	printf("delete command : ");
-	printf("%s",cmd);
+	char *tok;
+	int i1;
+	if((tok=strtok(cmd, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	if((tok=strtok(NULL, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	i1 = strtol(tok, NULL, 10);
+	printf("cmd: %s key: %d\n", cmd, i1);
 }
 
 void proc_l(char *cmd){
-	printf("load command : ");
-	printf("%s",cmd);
+	char *tok;
+	int i1;
+	if((tok=strtok(cmd, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	if((tok=strtok(NULL, " "))==NULL){
+		perror("Do nothing. Malformed command.");
+		return;
+	}
+	printf("cmd: %s file: %s", cmd, tok);
 }
 
 void proc_s(char *cmd){
-	printf("stat command : ");
-	printf("%s",cmd);
+	printf("cmd: %s",cmd);
 	printf("Total Pairs: %d\n", 12);
 }
