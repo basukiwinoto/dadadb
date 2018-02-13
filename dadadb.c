@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lsmtreelib.h"
+
 /***
  * macros
  **/
@@ -28,7 +30,6 @@ void proc_s(char *cmd);
 int main(int argc, char **argv){
 	FILE *f;
 	char *cmd;
-	int loop = 1;
 	
 	if(argc==1){						/* exit if no arg */
 		perror("Missing argument file input");
@@ -45,6 +46,8 @@ int main(int argc, char **argv){
 		proc_cmd(cmd);
 	}
 	
+	//uncomment to debug list content
+	//display_all();
 	return 0;
 }
 
@@ -96,7 +99,9 @@ void proc_p(char *cmd){
 		return;
 	}
 	i2 = strtol(tok, NULL, 10);	
-	printf("cmd: %s key: %d value: %d\n", cmd, i1, i2);
+	//uncomment to debug command
+	printf("cmd> %s key: %d value: %d\n", cmd, i1, i2);
+	put(i1,i2);
 }
 
 void proc_g(char *cmd){
@@ -111,7 +116,13 @@ void proc_g(char *cmd){
 		return;
 	}
 	i1 = strtol(tok, NULL, 10);
-	printf("cmd: %s key: %d\n", cmd, i1);
+	//uncomment to debug command
+	printf("cmd> %s key: %d\n", cmd, i1);
+	int v = get(i1);
+	if(v!=-1){
+		printf("%d",get(i1));
+	}
+	printf("\n");
 }
 
 void proc_r(char *cmd){
@@ -131,7 +142,10 @@ void proc_r(char *cmd){
 		return;
 	}
 	i2 = strtol(tok, NULL, 10);	
-	printf("cmd: %s key: %d value: %d\n", cmd, i1, i2);
+	//uncomment to debug the command
+	printf("cmd> %s key: %d value: %d\n", cmd, i1, i2);
+	display(range(i1,i2));
+	printf("\n");
 }
 
 void proc_d(char *cmd){
@@ -146,12 +160,13 @@ void proc_d(char *cmd){
 		return;
 	}
 	i1 = strtol(tok, NULL, 10);
-	printf("cmd: %s key: %d\n", cmd, i1);
+	//uncomment to debug command
+	printf("cmd> %s key: %d\n", cmd, i1);
+	delete(i1);
 }
 
 void proc_l(char *cmd){
 	char *tok;
-	int i1;
 	if((tok=strtok(cmd, " "))==NULL){
 		perror("Do nothing. Malformed command.");
 		return;
@@ -160,10 +175,12 @@ void proc_l(char *cmd){
 		perror("Do nothing. Malformed command.");
 		return;
 	}
-	printf("cmd: %s file: %s", cmd, tok);
+	printf("cmd> %s file: %s", cmd, tok);
 }
 
 void proc_s(char *cmd){
-	printf("cmd: %s",cmd);
-	printf("Total Pairs: %d\n", 12);
+	printf("cmd> %s",cmd);
+	printf("Total Pairs: %d\n", count());
+	display_all();
+	printf("\n");
 }
