@@ -2,122 +2,97 @@
 #include <stdlib.h>
 #include "lsmtreelib.h"
 
+#define MAX_LSMTREE_LEN 1000
 
 struct keyval {
-	struct keyval *prev;
 	int key;
 	int value;
 	char flag;
 };
 
-struct keyval *last = '\0';
-
-
-struct keyval *next(struct keyval *current){
-	return current->prev;
-}
+struct keyval *lsmtree[MAX_LSMTREE_LEN];
+int lsmtidx=0;
 
 int put(int k, int v){
 	struct keyval *kv = (struct keyval *) malloc(sizeof(struct keyval));
-	kv->prev = last;
 	kv->key = k;
 	kv->value = v;
 	kv->flag = 'i';
-	last = kv;
+	lsmtree[lsmtidx] = kv;
+	lsmtidx++;
 	return 0;
-}
-
-int display(struct keyval *current){
-	struct keyval *kv = current;
-	if(kv=='\0'){
-		perror("List is empty");
-		return -1;
-	}
-	while(kv != '\0'){
-		if (kv->flag != 'd'){
-			printf("%d:%d ", kv->key, kv->value);
-		}
-		kv = next(kv);
-	}
-	return 0;
-}
-
-int display_all(){
-	return display(last);
 }
 
 int get(int k){
-	struct keyval *kv = last;
-	if(kv=='\0'){
-		perror("List is empty");
+	struct keyval *kv;
+	int i;
+	for(i=lsmtidx-1;i>=0;i--){
+		kv = lsmtree[i];
+		if (kv->key==k){
+			break;
+		}
+	}
+	if(i==0){
 		return -1;
 	}
-	while(kv != '\0'){
-		if ((kv->key == k) && (kv->flag != 'd')) {
-			return kv->value;
-		}
-		kv = next(kv);
+	if(kv->flag=='d'){
+		return -1;
 	}
-	return -1;
+	return kv->value;
 }
 
 int delete(int k){
-	struct keyval *kv = last;
-	int delkey = -1;
-	if(kv=='\0'){
-		perror("List is empty");
-		return -1;
-	}
-	while(kv != '\0'){
-		if (kv->key == k) {
-			kv->flag='d';
-			delkey = k;
-		}
-		kv = next(kv);
-	}
-	return delkey;
-}
-
-struct keyval *range(int start, int end){
-	struct keyval *kv = last;
-	struct keyval *ret = '\0';
-	if(kv=='\0'){
-		perror("List is empty");
-		return NULL;
-	}
-	while(kv != '\0'){
-		if ((kv->key >= start) && (kv->key < end)
-			&& (kv->flag != 'd') && (keyexists(kv->key, ret) == 0)) {
-			struct keyval *r = (struct keyval *) malloc(sizeof(struct keyval));
-			r->prev = ret;
-			r->key = kv->key;
-			r->value = kv->value;
-			r->flag = kv->flag;
-			ret = r;
-		}
-		kv = next(kv);
-	}
-	return ret;	
-}
-
-int keyexists(int k, struct keyval *current){
-	while(current != '\0'){
-		if(current->key == k){
-			return 1;
-		}
-		current = next(current);
-	}
+	struct keyval *kv = (struct keyval *) malloc(sizeof(struct keyval));
+	kv->key = k;
+	kv->flag = 'd';
+	lsmtree[lsmtidx] = kv;
+	lsmtidx++;
 	return 0;
 }
 
-int count(){
-	struct keyval *kv = last;
-	int c = 0;
-	while(kv != '\0'){
-		if ((kv->flag != 'd') && (keyexists(kv->key, next(kv)) == 0)) {
-			c++;
+int range(int start, int end, struct keyval **rlsmt){
+	int rlsmtidx = 0;
+
+	struct keyval *kv;
+	int i;
+	for(i=0;i<lsmtidx;i++){
+		kv = lsmtree[i];
+		if ((kv->key>=start) && (kv->key < end)){
+			rlsmt[rlsmtidx] = kv;
+			rlsmtidx++;
 		}
-		kv = next(kv);
 	}
-	return c;	
+	return rlsmtidx;
+}
+
+int display(){
+	return display_lsmtree(lsmtree, lsmtidx);
+}
+
+int display_lsmtree(struct keyval **lsmt, int len){
+	struct keyval *kv;
+
+	int i;
+	for(i=len-1;i>=0;i--){
+		kv = lsmt[i];
+		if(kv->flag!='d' && is_latest(kv, lsmt, len)){
+			printf("%d:%d ", kv->key, kv->value);
+		}
+	}
+	return len;
+}
+
+int is_latest(struct keyval *kv, struct keyval **lsmt, int len){
+	int i;
+	for(i=len-1;i>=0;i--){
+		if(lsmt[i]->key == kv->key){
+			break;
+		}
+	}
+	
+	return kv==lsmt[i];
+}
+
+int count(){
+	return lsmtidx;	
 }

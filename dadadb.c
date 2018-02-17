@@ -144,7 +144,9 @@ void proc_r(char *cmd){
 	i2 = strtol(tok, NULL, 10);	
 	//uncomment to debug the command
 	printf("cmd> %s key: %d value: %d\n", cmd, i1, i2);
-	display(range(i1,i2));
+	struct keyval *lsmt[count()];
+	int len = range(i1,i2,lsmt);
+	display_lsmtree(lsmt, len);
 	printf("\n");
 }
 
@@ -181,6 +183,6 @@ void proc_l(char *cmd){
 void proc_s(char *cmd){
 	printf("cmd> %s",cmd);
 	printf("Total Pairs: %d\n", count());
-	display_all();
+	display();
 	printf("\n");
 }
