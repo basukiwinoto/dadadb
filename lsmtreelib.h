@@ -17,7 +17,7 @@ int count();
 int flush();
 int sort(struct keyval **tree, int lo, int hi);
 int partition(struct keyval **tree, int lo, int hi);
-int merge();
-int print_C1();
+int merge(struct keyval **tree, int len, char *target);
+int print_merged_content(char *target);
 
 #endif

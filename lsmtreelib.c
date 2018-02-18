@@ -9,7 +9,7 @@
 /***
  * macros
  **/
-#define MAX_LSMTREE_LEN	1000	/* max buffer size*/
+#define MAX_LSMTREE_LEN	100	/* max buffer size*/
 #define FLAG_INSERTED	'i'		/* flag inserted */
 #define	FLAG_DELETED	'd'		/* flag deleted */
 
@@ -41,7 +41,9 @@ int append(int k, int v, char f){
 	kv->insidx = lsmtidx;
 	lsmtree[lsmtidx] = kv;
 	lsmtidx++;
-	if(lsmtidx==MAX_LSMTREE_LEN){
+	if(lsmtidx==MAX_LSMTREE_LEN){ /* merging if buffer is full */
+		merge(lsmtree, lsmtidx, "C1_merged");
+		print_merged_content("C1_merged");
 		flush();
 	}
 	return lsmtidx;
@@ -105,9 +107,10 @@ int range(int start, int end, struct keyval **rlsmt){
  **/
 int display(){
 	sort(lsmtree,0,lsmtidx-1);
-	//merge();
-	print_C1();
-	return display_lsmtree(lsmtree, lsmtidx);
+	display_lsmtree(lsmtree, lsmtidx);
+	//merge(lsmtree, lsmtidx, "C1_merged");
+	//print_merged_content("C1_merged");
+	return 0;
 }
 
 /***
@@ -151,8 +154,7 @@ int count(){
  * flush sorts the buffer and merge to the higher level
  **/
 int flush(){
-	sort(lsmtree, 0, lsmtidx);
-	merge();
+	lsmtidx=0;
 	return 0;
 }
 
@@ -185,30 +187,95 @@ int partition(struct keyval **tree, int lo, int hi){
 	return i+1;
 }
 
-int merge(){
-	FILE *f = fopen("C1","w+");
+int merge(struct keyval **tree, int len, char *target){
 	struct keyval *kv;
-	int i, last;
-	for(i=lsmtidx-1; i>=0; i--){
-		kv = lsmtree[i];
-		if(kv->flag != FLAG_DELETED && kv->key != last){
-			fwrite((const void *)&kv->key, sizeof(int), 1, f);
-			fwrite((const void *)&kv->value, sizeof(int), 1, f);
+	struct keyval *last = NULL;
+	
+	int i;
+	
+	FILE *ftgt = fopen(target,"rb");
+	FILE *ftmp = fopen("tmpfile","wb");
+	int k,v;
+		
+	if(!ftgt){ /* target is empty, copy only tree */
+		for(i=len-1;i>=0;i--){
+			kv = tree[i];
+			if ((!last || kv->key != last->key) 
+				&& kv->flag != FLAG_DELETED){ /* skip duplicates and deleted */
+				/* write kv */
+				fwrite((const void *)&kv->key, sizeof(int), 1, ftmp);
+				fwrite((const void *)&kv->value, sizeof(int), 1, ftmp);
+			}
+			last=kv;
 		}
-		last = kv->key;
+	} else { /* target not empty, merge tree */
+		i=len-1;
+		kv=tree[i];
+		fread(&k, sizeof(int), 1, ftgt);
+		fread(&v, sizeof(int), 1, ftgt);
+		while(i>=0 && !feof(ftgt)){
+			printf("f %d : t %d", k, kv->key);
+			if(k == kv->key){
+				printf("=\n");
+				/* write kv */
+				if(kv->flag != FLAG_DELETED){
+					fwrite((const void *)&kv->key, sizeof(int), 1, ftmp);
+					fwrite((const void *)&kv->value, sizeof(int), 1, ftmp);
+				}
+				/* adv k */
+				fread(&k, sizeof(int), 1, ftgt);
+				fread(&v, sizeof(int), 1, ftgt);
+				/* adv kv */
+				last = kv;
+				while(i>=0 && kv->key == last->key){
+					i--;
+					kv = tree[i];
+				}
+			} else if (k < kv->key) {
+				printf("<\n");
+				/* write k */
+				fwrite((const void *)&k, sizeof(int), 1, ftmp);
+				fwrite((const void *)&v, sizeof(int), 1, ftmp);
+				/* adv k */
+				if(fread(&k, sizeof(int), 1, ftgt) != 1 ||
+					fread(&v, sizeof(int), 1, ftgt) != 1)
+					break;
+			} else if (k > kv->key) {
+				printf(">\n");
+				/* write kv */
+				if(kv->flag != FLAG_DELETED){
+					fwrite((const void *)&kv->key, sizeof(int), 1, ftmp);
+					fwrite((const void *)&kv->value, sizeof(int), 1, ftmp);
+				}
+				/* adv kv */
+				last = kv;
+				while(i>=0 && kv->key == last->key){
+					i--;
+					kv = tree[i];
+				}
+			}
+		}
+	
+		
 	}
 	
-	fclose(f);
+	if (ftgt)
+		fclose(ftgt);
+	if (ftmp)
+		fclose(ftmp);
+	rename("tmpfile", target);
 	return 0;
 }
 
-int print_C1(){
-	FILE *f = fopen("C1","r");
+int print_merged_content(char *target){
+	FILE *ftgt = fopen(target,"rb");
 	int k, v;
-	fread(&k, sizeof(int), 1, f);
-	fread(&v, sizeof(int), 1, f);
-	printf("%d:%d\n", k, v);
+	while(!feof(ftgt)){
+		fread(&k, sizeof(int), 1, ftgt);
+		fread(&v, sizeof(int), 1, ftgt);
+		printf("%d:%d\n", k, v);
+	}
 	
-	fclose(f);
+	fclose(ftgt);
 	return 0;
 }
