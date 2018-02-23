@@ -14,7 +14,9 @@ int count();
 int flush();
 int sort(struct keyval **tree, int lo, int hi);
 int partition(struct keyval **tree, int lo, int hi);
-int merge(struct keyval **tree, int len, char *target);
-int print_merged_content(char *target);
+int merge(struct keyval **tree, int len, int level);
+int print_merged_content(int level);
+int print_lsm_tree();
+int get_from_sstable(int k, int level);
 
 #endif

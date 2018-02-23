@@ -10,12 +10,9 @@
 /***
  * macros
  **/
-#define MAX_MEMTABLE_LEN	100		/* max buffer size*/
+#define MAX_MEMTABLE_LEN	4		/* max buffer size*/
 #define FLAG_INSERTED		'i'		/* flag inserted */
 #define	FLAG_DELETED		'd'		/* flag deleted */
-
-#define MERGED_DIR			"trees"	/* dir for merged trees */
-#define MAX_MERGEDTREE_LEN 	150		/* max merged tree size */
 
 /***
  * struct keyval holds a key-value pair, with flag for deletion
@@ -40,9 +37,10 @@ int memtable_idx = 0;
 int put(int k, int v){
 	int i = append(k, v, FLAG_INSERTED);
 
-	if (i == MAX_MEMTABLE_LEN)
+	if (i == MAX_MEMTABLE_LEN){
 		flush();
-	
+	}
+		
 	return i;
 }
 
@@ -58,8 +56,8 @@ int get(int k){
 		if (kv->k == k)
 			break;
 	}
-	if(i==0) 					/* not found */
-		return -1;
+	if(i==0) 				/* not found */
+		return get_from_sstable(k, 1);
 	if(kv->f==FLAG_DELETED)	/* deleted */
 		return -1;
 	
@@ -117,8 +115,8 @@ int count(){
  * flush sorts the buffer and merge to the higher level
  **/
 int flush(){
-	sort(memtable, 0, memtable_idx);
-	merge(memtable, memtable_idx, "c1");
+	sort(memtable, 0, memtable_idx-1);
+	merge(memtable, memtable_idx, 1);
 	memtable_idx = 0;
 	return 0;
 }
@@ -152,7 +150,10 @@ int partition(struct keyval **tree, int lo, int hi){
 	return i+1;
 }
 
-int merge(struct keyval **tree, int len, char *target){
+int merge(struct keyval **tree, int len, int level){
+	char target[256];
+	snprintf(target, 256, "c%d.sstable", level);
+
 	struct keyval *kv;
 	struct keyval *last = NULL;
 	
@@ -163,8 +164,8 @@ int merge(struct keyval **tree, int len, char *target){
 	int k,v;
 		
 	if(!ftgt){ /* target is empty, copy only tree */
-		for(i=len-1;i>=0;i--){
-			kv = tree[i];
+		for(i=len;i>0;i--){
+			kv = tree[i-1];
 			if ((!last || kv->k != last->k) 
 				&& kv->f != FLAG_DELETED){ /* skip duplicates and deleted */
 				/* write kv */
@@ -180,9 +181,7 @@ int merge(struct keyval **tree, int len, char *target){
 		fread(&k, sizeof(int), 1, ftgt);
 		fread(&v, sizeof(int), 1, ftgt);
 		while(i>=0 && !feof(ftgt)){
-			printf("f %d : t %d", k, kv->k);
 			if(k == kv->k){
-				printf("=\n");
 				/* write kv */
 				if(kv->f != FLAG_DELETED){
 					fwrite((const void *)&kv->k, sizeof(int), 1, ftmp);
@@ -198,7 +197,6 @@ int merge(struct keyval **tree, int len, char *target){
 					kv = tree[i];
 				}
 			} else if (k < kv->k) {
-				printf("<\n");
 				/* write k */
 				fwrite((const void *)&k, sizeof(int), 1, ftmp);
 				fwrite((const void *)&v, sizeof(int), 1, ftmp);
@@ -207,7 +205,6 @@ int merge(struct keyval **tree, int len, char *target){
 					fread(&v, sizeof(int), 1, ftgt) != 1)
 					break;
 			} else if (k > kv->k) {
-				printf(">\n");
 				/* write kv */
 				if(kv->f != FLAG_DELETED){
 					fwrite((const void *)&kv->k, sizeof(int), 1, ftmp);
@@ -230,19 +227,52 @@ int merge(struct keyval **tree, int len, char *target){
 	if (ftmp)
 		fclose(ftmp);
 	rename("tmpfile", target);
-	print_merged_content(target);
 	return 0;
 }
 
-int print_merged_content(char *target){
+int print_merged_content(int level){
+	char target[256];
+	snprintf(target, 256, "c%d.sstable", level);
+	
 	FILE *ftgt = fopen(target,"rb");
+	if(!ftgt) /* file not exists */
+		return 0;
+	
+	printf("%s:\n", target);
 	int k, v;
 	while(!feof(ftgt)){
-		fread(&k, sizeof(int), 1, ftgt);
-		fread(&v, sizeof(int), 1, ftgt);
-		printf("%d:%d\n", k, v);
+		if(fread(&k, sizeof(int), 1, ftgt) &&
+			fread(&v, sizeof(int), 1, ftgt))
+			printf("%d:%d ", k, v);
 	}
-	
+	printf("\n");
 	fclose(ftgt);
 	return 0;
+}
+
+int print_lsm_tree(){
+	printf("c0:\n");
+	for(int i=0;i<memtable_idx;i++){
+		printf("%d:%d ", memtable[i]->k, memtable[i]->v);
+	}
+	printf("\n");
+	print_merged_content(1);
+	return 0;
+}
+
+int get_from_sstable(int k, int level){
+	char target[256];
+	snprintf(target, 256, "c%d.sstable", level);
+	
+	FILE *ftgt = fopen(target,"rb");
+	if(!ftgt) /* file not exists */
+		return -1;
+	
+	int key, value;
+	while(!feof(ftgt)){
+		if(fread(&key, sizeof(int), 1, ftgt) &&
+			fread(&value, sizeof(int), 1, ftgt) && key == k)
+			return value;
+	}
+	return -1;	
 }

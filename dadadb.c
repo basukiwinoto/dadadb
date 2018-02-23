@@ -12,6 +12,7 @@
  * macros
  **/
 #define MAX_CMD_LEN 256			/* maximum length of a command */
+#define VERBOSE 0		/* verbose mode 1 - on, 0 - off */
 
 /***
  * prototypes
@@ -99,8 +100,10 @@ void proc_p(char *cmd){
 		return;
 	}
 	i2 = strtol(tok, NULL, 10);	
-	//uncomment to debug command
-	printf("cmd> %s key: %d value: %d\n", cmd, i1, i2);
+	if(VERBOSE){
+		printf("cmd> %s key: %d value: %d\n", cmd, i1, i2);
+		print_lsm_tree();
+	}
 	put(i1,i2);
 }
 
@@ -116,8 +119,10 @@ void proc_g(char *cmd){
 		return;
 	}
 	i1 = strtol(tok, NULL, 10);
-	//uncomment to debug command
-	printf("cmd> %s key: %d\n", cmd, i1);
+	if(VERBOSE){
+		printf("cmd> %s key: %d\n", cmd, i1);
+		print_lsm_tree();
+	}
 	int v = get(i1);
 	if(v!=-1){
 		printf("%d",get(i1));
@@ -142,8 +147,10 @@ void proc_r(char *cmd){
 		return;
 	}
 	i2 = strtol(tok, NULL, 10);	
-	//uncomment to debug the command
-	printf("cmd> %s key: %d value: %d\n", cmd, i1, i2);
+	if(VERBOSE){
+		printf("cmd> %s key: %d value: %d\n", cmd, i1, i2);
+		print_lsm_tree();
+	}
 	int	*r = range(i1,i2);
 	for(int i=i1;i<i2;i++) {
 		if(r[i-i1]>-1)
@@ -164,8 +171,10 @@ void proc_d(char *cmd){
 		return;
 	}
 	i1 = strtol(tok, NULL, 10);
-	//uncomment to debug command
-	printf("cmd> %s key: %d\n", cmd, i1);
+	if(VERBOSE){
+		printf("cmd> %s key: %d\n", cmd, i1);
+		print_lsm_tree();
+	}
 	delete(i1);
 }
 
@@ -179,11 +188,17 @@ void proc_l(char *cmd){
 		perror("Do nothing. Malformed command.");
 		return;
 	}
-	printf("cmd> %s file: %s", cmd, tok);
+	if(VERBOSE){
+		printf("cmd> %s file: %s", cmd, tok);
+		print_lsm_tree();
+	}
 }
 
 void proc_s(char *cmd){
-	printf("cmd> %s",cmd);
+	if(VERBOSE){
+		printf("cmd> %s",cmd);
+		print_lsm_tree();
+	}
 	printf("Total Pairs: %d\n", count());
 	printf("\n");
 }
