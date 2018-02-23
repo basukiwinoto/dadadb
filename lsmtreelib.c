@@ -5,55 +5,45 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "lsmtreelib.h"
+#include <stddef.h>
 
 /***
  * macros
  **/
-#define MAX_LSMTREE_LEN	100	/* max buffer size*/
-#define FLAG_INSERTED	'i'		/* flag inserted */
-#define	FLAG_DELETED	'd'		/* flag deleted */
+#define MAX_MEMTABLE_LEN	100		/* max buffer size*/
+#define FLAG_INSERTED		'i'		/* flag inserted */
+#define	FLAG_DELETED		'd'		/* flag deleted */
+
+#define MERGED_DIR			"trees"	/* dir for merged trees */
+#define MAX_MERGEDTREE_LEN 	150		/* max merged tree size */
 
 /***
  * struct keyval holds a key-value pair, with flag for deletion
  **/
 struct keyval {
-	int key;
-	int value;
-	char flag;
-	int insidx;
+	int k;	/* key */
+	int v;	/* value */
+	char f;	/* flag - FLAG_INSERTED, FLAG_DELETED*/
+	int i;	/* insertion order */
 };
 
 /***
- * lsmtree is the C0 memory buffer
- * lsmtidx is the index of the next empty in the buffer
+ * memtable is the C0 memory buffer
+ * memtable_idx is the index of the next empty in the buffer
  **/
-struct keyval *lsmtree[MAX_LSMTREE_LEN];
-int lsmtidx=0;
-
-/***
- * append creates key-value pair and adds it to the buffer
- **/
-int append(int k, int v, char f){
-	struct keyval *kv = (struct keyval *) malloc(sizeof(struct keyval));
-	kv->key = k;
-	kv->value = v;
-	kv->flag = f;
-	kv->insidx = lsmtidx;
-	lsmtree[lsmtidx] = kv;
-	lsmtidx++;
-	if(lsmtidx==MAX_LSMTREE_LEN){ /* merging if buffer is full */
-		merge(lsmtree, lsmtidx, "C1_merged");
-		print_merged_content("C1_merged");
-		flush();
-	}
-	return lsmtidx;
-}
+struct keyval *memtable[MAX_MEMTABLE_LEN];
+int memtable_idx = 0;
 
 /***
  * put inserts a new pair of key k and value v to the lsm-tree
  **/
 int put(int k, int v){
-	return append(k, v, FLAG_INSERTED);
+	int i = append(k, v, FLAG_INSERTED);
+
+	if (i == MAX_MEMTABLE_LEN)
+		flush();
+	
+	return i;
 }
 
 /***
@@ -62,99 +52,74 @@ int put(int k, int v){
 int get(int k){
 	struct keyval *kv;
 	int i;
-	for(i=lsmtidx-1;i>=0;i--){
-		kv = lsmtree[i];
-		if (kv->key==k){
+	
+	for(i=memtable_idx;i>0;i--){
+		kv = memtable[i-1];
+		if (kv->k == k)
 			break;
-		}
 	}
-	if(i==0){
+	if(i==0) 					/* not found */
 		return -1;
-	}
-	if(kv->flag==FLAG_DELETED){
+	if(kv->f==FLAG_DELETED)	/* deleted */
 		return -1;
-	}
-	return kv->value;
+	
+	return kv->v;
 }
 
 /***
  * delete inserts a new pair of key k with flag deleted to the lsm-tree
  **/
 int delete(int k){
-	return append(k, 0, FLAG_DELETED);
-}
+	int i = append(k, 0, FLAG_DELETED);
 
-/***
- * range gets the key value pairs with key between start and end
- **/
-int range(int start, int end, struct keyval **rlsmt){
-	int rlsmtidx = 0;
-
-	struct keyval *kv;
-	int i;
-	for(i=0;i<lsmtidx;i++){
-		kv = lsmtree[i];
-		if ((kv->key>=start) && (kv->key < end)){
-			rlsmt[rlsmtidx] = kv;
-			rlsmtidx++;
-		}
-	}
-	return rlsmtidx;
-}
-
-/***
- * display prints out the lsm-tree
- **/
-int display(){
-	sort(lsmtree,0,lsmtidx-1);
-	display_lsmtree(lsmtree, lsmtidx);
-	//merge(lsmtree, lsmtidx, "C1_merged");
-	//print_merged_content("C1_merged");
-	return 0;
-}
-
-/***
- * display_lsmtree prints out a lsm-tree lsmt with length of len
- **/
-int display_lsmtree(struct keyval **lsmt, int len){
-	struct keyval *kv;
-
-	int i;
-	for(i=len-1;i>=0;i--){
-		kv = lsmt[i];
-		if(kv->flag!=FLAG_DELETED && is_latest(kv, lsmt, len)){
-			printf("%d:%d ", kv->key, kv->value);
-		}
-	}
-	return len;
-}
-
-/***
- * is_latest tests if a key-value pair kv is the most recent in the lsmt
- **/
-int is_latest(struct keyval *kv, struct keyval **lsmt, int len){
-	int i;
-	for(i=len-1;i>=0;i--){
-		if(lsmt[i]->key == kv->key){
-			break;
-		}
-	}
+	if (i == MAX_MEMTABLE_LEN)
+		flush();
 	
-	return kv==lsmt[i];
+	return i;
+}
+
+/***
+ * range gets the key value pairs with key between lo and hi
+ **/
+int *range(int lo, int hi){
+	int *r = (int *)malloc(sizeof(int)*(hi-lo));
+	for(int i=lo;i<hi;i++){
+		r[i-lo] = get(i);
+	}
+	return r;
+}
+
+/***
+ * append creates key-value pair and adds it to the buffer
+ **/
+int append(int k, int v, char f){
+	/* append to C0 */
+	struct keyval *kv = (struct keyval *) malloc(sizeof(struct keyval));
+
+	kv->k = k;
+	kv->v = v;
+	kv->f = f;
+	kv->i = memtable_idx;
+	memtable[memtable_idx] = kv;
+	memtable_idx++;
+
+	return memtable_idx;
 }
 
 /***
  * count returns the length of the lsm-tree
  **/
 int count(){
-	return lsmtidx;	
+	return memtable_idx-1;	
 }
 
 /***
  * flush sorts the buffer and merge to the higher level
  **/
 int flush(){
-	lsmtidx=0;
+	sort(memtable, 0, memtable_idx);
+	merge(memtable, memtable_idx, "c1");
+	memtable_idx = 0;
 	return 0;
 }
 
@@ -173,8 +138,8 @@ int partition(struct keyval **tree, int lo, int hi){
 	int i=lo-1;
 	int j;
 	for(j=lo; j<hi; j++){
-		if((tree[j]->key > pivot->key) ||
-		   (tree[j]->key == pivot->key && tree[j]->insidx < pivot->insidx)){
+		if((tree[j]->k > pivot->k) ||
+		   (tree[j]->k == pivot->k && tree[j]->i < pivot->i)){
 			i++;
 			tmp = tree[i];
 			tree[i] = tree[j];
@@ -200,38 +165,39 @@ int merge(struct keyval **tree, int len, char *target){
 	if(!ftgt){ /* target is empty, copy only tree */
 		for(i=len-1;i>=0;i--){
 			kv = tree[i];
-			if ((!last || kv->key != last->key) 
-				&& kv->flag != FLAG_DELETED){ /* skip duplicates and deleted */
+			if ((!last || kv->k != last->k) 
+				&& kv->f != FLAG_DELETED){ /* skip duplicates and deleted */
 				/* write kv */
-				fwrite((const void *)&kv->key, sizeof(int), 1, ftmp);
-				fwrite((const void *)&kv->value, sizeof(int), 1, ftmp);
+				fwrite((const void *)&kv->k, sizeof(int), 1, ftmp);
+				fwrite((const void *)&kv->v, sizeof(int), 1, ftmp);
 			}
 			last=kv;
 		}
 	} else { /* target not empty, merge tree */
 		i=len-1;
 		kv=tree[i];
+		/* adv k */
 		fread(&k, sizeof(int), 1, ftgt);
 		fread(&v, sizeof(int), 1, ftgt);
 		while(i>=0 && !feof(ftgt)){
-			printf("f %d : t %d", k, kv->key);
-			if(k == kv->key){
+			printf("f %d : t %d", k, kv->k);
+			if(k == kv->k){
 				printf("=\n");
 				/* write kv */
-				if(kv->flag != FLAG_DELETED){
-					fwrite((const void *)&kv->key, sizeof(int), 1, ftmp);
-					fwrite((const void *)&kv->value, sizeof(int), 1, ftmp);
+				if(kv->f != FLAG_DELETED){
+					fwrite((const void *)&kv->k, sizeof(int), 1, ftmp);
+					fwrite((const void *)&kv->v, sizeof(int), 1, ftmp);
 				}
 				/* adv k */
 				fread(&k, sizeof(int), 1, ftgt);
 				fread(&v, sizeof(int), 1, ftgt);
 				/* adv kv */
 				last = kv;
-				while(i>=0 && kv->key == last->key){
+				while(i>=0 && kv->k == last->k){
 					i--;
 					kv = tree[i];
 				}
-			} else if (k < kv->key) {
+			} else if (k < kv->k) {
 				printf("<\n");
 				/* write k */
 				fwrite((const void *)&k, sizeof(int), 1, ftmp);
@@ -240,16 +206,16 @@ int merge(struct keyval **tree, int len, char *target){
 				if(fread(&k, sizeof(int), 1, ftgt) != 1 ||
 					fread(&v, sizeof(int), 1, ftgt) != 1)
 					break;
-			} else if (k > kv->key) {
+			} else if (k > kv->k) {
 				printf(">\n");
 				/* write kv */
-				if(kv->flag != FLAG_DELETED){
-					fwrite((const void *)&kv->key, sizeof(int), 1, ftmp);
-					fwrite((const void *)&kv->value, sizeof(int), 1, ftmp);
+				if(kv->f != FLAG_DELETED){
+					fwrite((const void *)&kv->k, sizeof(int), 1, ftmp);
+					fwrite((const void *)&kv->v, sizeof(int), 1, ftmp);
 				}
 				/* adv kv */
 				last = kv;
-				while(i>=0 && kv->key == last->key){
+				while(i>=0 && kv->k == last->k){
 					i--;
 					kv = tree[i];
 				}
@@ -264,6 +230,7 @@ int merge(struct keyval **tree, int len, char *target){
 	if (ftmp)
 		fclose(ftmp);
 	rename("tmpfile", target);
+	print_merged_content(target);
 	return 0;
 }
 
