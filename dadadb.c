@@ -192,6 +192,7 @@ void proc_l(char *cmd){
 		printf("cmd> %s file: %s", cmd, tok);
 		print_lsm_tree();
 	}
+	load(tok);
 }
 
 void proc_s(char *cmd){
@@ -199,6 +200,5 @@ void proc_s(char *cmd){
 		printf("cmd> %s",cmd);
 		print_lsm_tree();
 	}
-	printf("Total Pairs: %d\n", count());
-	printf("\n");
+	stat();
 }
